@@ -98,50 +98,6 @@ export class KMSProvider {
     return address;
   }
 
-  async signTx1({ tx, sender, keyId, chainId }) {
-    const txClone = Transaction.from(tx)
-
-    // Hash the serialized transaction using keccak256
-    const rlpTx = txClone.unsignedSerialized
-    console.log('RLP Transaction:', rlpTx)
-
-    // const txHash = keccak256(rlpTx)
-    const txHash = keccak256(Buffer.from('picanha é muito bommmm!'))
-    console.log('Transaction Hash:', txHash)
-
-    // Convert the hash to a buffer
-    const digest = Buffer.from(txHash.slice(2), 'hex')
-    console.log('Digest:', digest.toString('hex'))
-
-    const signCommand = new SignCommand({
-      KeyId: keyId,
-      Message: digest,
-      MessageType: "DIGEST", // NOTE: if you use RAW, KMS will hash the message for you (we don't want that here)
-      SigningAlgorithm: "ECDSA_SHA_256",
-    })
-    const response = await this.kms.send(signCommand)
-    
-    const signedMessage = Buffer.from(response.Signature)
-    // const signedMessage = Buffer.from('MEUCIFJXc8pE6i9ZurkoZ9hHTO8sV5Jr2E+Bw4iDW+KP0YIlAiEA4ra4EUNhq7GutNDiFxOgjr/TCoYOPC2keiM0MKQpz+w=', 'base64')
-    console.log('KMS Sign Response')
-    console.log(signedMessage.toString('base64'))
-
-    const { r, s } = this.#decodeRS(signedMessage)
-    // const { v } = calculateV(signedMessage, chainId)
-    const v = this.#calculateV(sender, digest, r, s, chainId);
-
-    const signedTx = Transaction.from({
-      ...txClone.toJSON(),
-      signature: {
-        r: '0x' + r.toString('hex'),
-        s: '0x' + s.toString('hex'),
-        v
-      }
-    })
-    console.log(signedTx.toJSON())
-    console.log(signedTx.serialized)
-    return signedTx.serialized
-  }
   async signTx({ tx, sender, keyId, chainId }) {
     const unsignedTx = Transaction.from(tx)
 
@@ -191,10 +147,7 @@ export class KMSProvider {
   
     const r = new BN(Buffer.from(parsed.result.r.valueBlock.valueHex));
     let s = new BN(Buffer.from(parsed.result.s.valueBlock.valueHex));
-  
-    console.log({ r: r.toString('hex'), s: s.toString('hex') })
-    console.log({ r: r.toString(), s: s.toString() })
-  
+
     let secp256k1N = new BN("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16); // max value on the curve
     let secp256k1halfN = secp256k1N.div(new BN(2)); // half of the curve
     if (s.gt(secp256k1halfN)) {
