@@ -1,0 +1,16 @@
+{
+  "name": "kms-ethereum-signer",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules dotenvx run -- jest --runInBand",
+    "hardhat": "dotenvx run -- hardhat --config blockchain/hardhat.config.js"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.11.1",
+    "hardhat": "^2.22.9",
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "ethers": "^6.13.2"
+  }
+}
