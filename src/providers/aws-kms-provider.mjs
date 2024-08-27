@@ -4,10 +4,9 @@ import {
   // CreateKeyCommand,
   GetPublicKeyCommand,
 } from "@aws-sdk/client-kms"
+import BN from 'bn.js'
 import * as asn1js from "asn1js"
 import { keccak256, Transaction, recoverAddress } from "ethers"
-import secp256k1 from 'secp256k1';
-import BN from 'bn.js'
 
 export class KMSProvider {
   constructor(config) {
@@ -144,20 +143,14 @@ export class KMSProvider {
     return signedTx.serialized
   }
   async signTx({ tx, sender, keyId, chainId }) {
-    console.log({ tx, sender, keyId, chainId })
-
-    const txClone = Transaction.from(tx)
+    const unsignedTx = Transaction.from(tx)
 
     // Hash the serialized transaction using keccak256
-    const rlpTx = txClone.unsignedSerialized
-    console.log('RLP Transaction:', rlpTx)
-
-    const txHash = keccak256(rlpTx)
-    console.log('Transaction Hash:', txHash)
-
+    const rlpUnsignedTx = unsignedTx.unsignedSerialized
+    const unsignedTxHash = keccak256(rlpUnsignedTx).slice(2) // remove the 0x prefix
+ 
     // Convert the hash to a buffer
-    const digest = Buffer.from(txHash.slice(2), 'hex')
-    console.log('Digest:', digest.toString('hex'))
+    const digest = Buffer.from(unsignedTxHash, 'hex')
 
     const signCommand = new SignCommand({
       KeyId: keyId,
@@ -166,24 +159,20 @@ export class KMSProvider {
       SigningAlgorithm: "ECDSA_SHA_256",
     })
     const response = await this.kms.send(signCommand)
-    
-    const signedMessage = Buffer.from(response.Signature)
-    // const signedMessage = Buffer.from('MEUCIFJXc8pE6i9ZurkoZ9hHTO8sV5Jr2E+Bw4iDW+KP0YIlAiEA4ra4EUNhq7GutNDiFxOgjr/TCoYOPC2keiM0MKQpz+w=', 'base64')
+    const ecdsaSignature = Buffer.from(response.Signature)
 
-    const { r, s } = this.#decodeRS(signedMessage)
-    // const { v } = calculateV(signedMessage, chainId)
+    const { r, s } = this.#decodeRS(ecdsaSignature)
     const v = this.#calculateV(sender, digest, r, s, chainId);
 
     const signedTx = Transaction.from({
-      ...txClone.toJSON(),
+      ...unsignedTx.toJSON(),
       signature: {
         r: '0x' + r.toString('hex'),
         s: '0x' + s.toString('hex'),
         v
       }
     })
-    console.log(signedTx.toJSON())
-    console.log(signedTx.serialized)
+
     return signedTx.serialized
   }
 
@@ -217,13 +206,18 @@ export class KMSProvider {
   }
   
    #calculateV(address, digest, r, s, chainId) {
-    const publicKey = secp256k1.ecdsaRecover(new Uint8Array(Buffer.concat([r, s])), 0, digest, false);
-    const recoveredAddress = `0x${keccak256(publicKey.slice(1)).slice(-40)}`;
-  
-    if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-      return Number(chainId) * 2 + 35; // v = 27 + chainId * 2 + 8 (EIP-1559)
-    } else { // TODO: check if the address is the same for the other v value
-      return Number(chainId) * 2 + 36; // v = 28 + chainId * 2 + 8 (EIP-1559)
+    const rHex = `0x${r.toString('hex')}`;
+    const sHex = `0x${s.toString('hex')}`;
+
+    const addressCandidateA = recoverAddress(digest, { r: rHex, s: sHex, v: 27 });
+    const addressCandidateB = recoverAddress(digest, { r: rHex, s: sHex, v: 28 });
+
+    if (addressCandidateA.toLocaleLowerCase() === address.toLocaleLowerCase()) {
+        return Number(chainId) * 2 + 35;
+    } else if (addressCandidateB.toLocaleLowerCase() === address.toLocaleLowerCase()) {
+        return Number(chainId) * 2 + 36;
     }
+
+    throw new Error('There was a problem calculating the V value');
   }
 }
