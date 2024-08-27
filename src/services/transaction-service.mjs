@@ -2,8 +2,8 @@ import { Transaction } from 'ethers'
   
 export class TransactionService {
   constructor({ provider, contractHelper }) {
-    this.provider = provider // new JsonRpcProvider(rpcURL)
-    this.contractHelper = contractHelper // new ContractHelper({  provider: this.provider })
+    this.provider = provider;
+    this.contractHelper = contractHelper;
   }
 
   async buildContractCallTx ({
