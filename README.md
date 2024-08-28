@@ -141,21 +141,25 @@ Since we now have an EVM public key, we can use it to derive the EVM public addr
 We have successfully used an ASN.1 schema to decode a KMS-based public key and from that decoded key, derive our EVM public address.
 
 # 6. Prepare the EVM transaction payload
-Since we are dealing here with EVM-compatible gas free networks (eg.: a private Hyperledger Besu network), we must prepare our transaction payload accordingly, following EIP-1559 guidelines.
+Since we are dealing here with EVM-compatible gas free networks (eg.: a private Hyperledger Besu network), we must prepare our transaction payload accordingly, following EIP-1559 guidelines. Note that our EVM-compatible provider has already been instanciated so we can communicate with the blockchain.
 
 ```javascript
-    const [{ chainId }, nonce, gasLimit] = await Promise.all([
+   const [{ chainId }, nonce, gasLimit] = await Promise.all([
       this.provider.getNetwork(),
       this.provider.getTransactionCount(sender),
-      this.provider.estimateGas({ data: txData }),
+      this.provider.estimateGas({
+        from: sender,
+        to: contractAddress,
+        data: txData,
+      }),
     ])
 
     // unsigned EIP-1559 transaction
     const unsignedTx = {
       chainId,
-      to: null, // Deploying contracts don't have a recipient
+      to: contractAddress, // txData will interact with a function from this contract
+      data: txData, // Encoded function call data
       nonce,
-      data: txData, // Bytecode plus encoded constructor arguments
       gasLimit,
       maxFeePerGas: 0,
       maxPriorityFeePerGas: 0,
@@ -187,11 +191,6 @@ Your "digest", or message to be signed, is ready.
 
 ## 7.2. Sign the hashed unsigned transaction with KMS
 At this step, we finally sign our transaction with KMS using the `SignCommand` function which will expect the following parameters:
-
-KeyId: keyId
-Message: digest
-MessageType: 'DIGEST'
-SigningAlgorithm: 'ECDSA_SHA_256'
 
 ```javascript
     const signCommand = new SignCommand({
@@ -225,7 +224,7 @@ The KMS-based signature is returned in an ASN.1 schema. This schema is specific 
       throw new Error('Failed to parse signature')
     }
     const r = new BN(Buffer.from(parsed.result.r.valueBlock.valueHex))
-    const s = this.#validateS(s)
+    const s = this.#validateS(s) // Validate the S value in accordance with EIP-2
 
     return {
       r: `0x${r.toString('hex')}`,
