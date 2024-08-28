@@ -1,7 +1,7 @@
 export class TransactionService {
   constructor({ provider, contractHelper }) {
-    this.provider = provider;
-    this.contractHelper = contractHelper;
+    this.provider = provider
+    this.contractHelper = contractHelper
   }
 
   async buildContractCallTx ({
@@ -15,7 +15,7 @@ export class TransactionService {
       contractName, contractAddress,
     })
     const txData = readOnlyContract.interface.encodeFunctionData(
-      contractFuncName, contractFuncArgs
+      contractFuncName, contractFuncArgs,
     )
 
     const [{ chainId }, nonce, gasLimit] = await Promise.all([
@@ -26,7 +26,7 @@ export class TransactionService {
         to: contractAddress,
         data: txData,
       }),
-    ]) 
+    ])
 
     // unsigned EIP-1559 transaction
     const unsignedTx = {
@@ -53,8 +53,8 @@ export class TransactionService {
     const [{ chainId }, nonce, gasLimit] = await Promise.all([
       this.provider.getNetwork(),
       this.provider.getTransactionCount(sender),
-      this.provider.estimateGas({ data: txData })
-    ]) 
+      this.provider.estimateGas({ data: txData }),
+    ])
 
     // unsigned EIP-1559 transaction
     const unsignedTx = {

@@ -1,4 +1,3 @@
-it("should pass", async () => {
-  expect(true).toBeTruthy();
+it('should pass', async () => {
+  expect(true).toBeTruthy()
 })
-  
