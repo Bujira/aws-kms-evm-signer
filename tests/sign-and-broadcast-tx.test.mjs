@@ -1,5 +1,5 @@
 
-import { kmsProvider, transactionService } from '../src/index.mjs'
+import { kmsProvider, transactionService, contractHelper } from '../src/index.mjs'
 import { startNetwork, stopNetwork } from './utils/setup-evm-network.mjs'
 
 describe('Sign and broadcast transaction', () => {
@@ -67,5 +67,15 @@ describe('Sign and broadcast transaction', () => {
     expect(typeof txReceipt).toBe('object')
     expect(typeof txReceipt.from).toBe('string')
     expect(txReceipt.from.toLocaleLowerCase()).toBe(kmsAddress.toLocaleLowerCase())
+  })
+
+  test('Should have minted 1000 tokens to the KMS address', async () => {
+    const readOnlyContract = await contractHelper.getReadOnlyContract({
+      contractName,
+      contractAddress: kmsERC20ContractAddress
+    })
+
+    const balance = await readOnlyContract.balanceOf(kmsAddress)
+    expect(balance).toBe(BigInt(1000))
   })
 })
