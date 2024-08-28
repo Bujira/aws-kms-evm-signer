@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-kms'
 import BN from 'bn.js'
 import * as asn1js from 'asn1js'
-import { keccak256, Transaction, recoverAddress } from 'ethers'
+import { Transaction, keccak256, getAddress, recoverAddress } from 'ethers'
 
 export class KMSProvider {
   constructor(config) {
@@ -18,10 +18,10 @@ export class KMSProvider {
   //       KeySpec: 'ECC_SECG_P256K1',
   //       KeyUsage: 'SIGN_VERIFY',
   //       Origin: 'AWS_KMS',
-  //     });
+  //     })
 
-  //     const response = await this.kms.send(createKeyCommand);
-  //     const keyId = response.KeyMetadata?.KeyId;
+  //     const response = await this.kms.send(createKeyCommand)
+  //     const keyId = response.KeyMetadata?.KeyId
 
   //     return keyId
   //   }
@@ -93,7 +93,10 @@ export class KMSProvider {
     // Add the prefix 0x and convert the bytes to a hex string
     const address = `0x${last20Bytes.toString('hex')}`
 
-    return address
+    // Use ethers.js to checksum the address (EIP-55)
+    const checkSummedAddress = getAddress(address)
+
+    return checkSummedAddress
   }
 
   async signTx({ tx, sender, keyId }) {
