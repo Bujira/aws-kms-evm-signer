@@ -1,5 +1,6 @@
 
 import { kmsProvider, transactionService } from '../src/index.mjs'
+import { startNetwork, stopNetwork } from './utils/setup-evm-network.mjs'
 
 describe('Sign and broadcast transaction', () => {
   let kmsAddress
@@ -7,8 +8,14 @@ describe('Sign and broadcast transaction', () => {
   const contractName = 'ERC20Token'
 
   beforeAll(async () => {
+    const networkUp = await startNetwork()
+    expect(networkUp).toBe(true)
+
     kmsAddress = await kmsProvider.getAddress(process.env.KMS_KEY_ID)
-  })
+    expect(typeof kmsAddress).toBe('string')
+  }, 10000)
+
+  afterAll(stopNetwork)
 
   test('Should deploy ERC20 smart contract', async () => {
     const tokenName = 'MyCoin'
