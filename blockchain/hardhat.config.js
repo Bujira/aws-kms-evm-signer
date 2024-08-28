@@ -11,7 +11,7 @@ module.exports = {
   networks: {
     hardhat: {
       initialBaseFeePerGas: 0,
-      accounts: []
+      accounts: [],
     },
   },
 }

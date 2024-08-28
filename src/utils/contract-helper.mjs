@@ -35,9 +35,9 @@ export class ContractHelper {
     const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
     // TODO: ensure file exists and is readable
-    const contractDataAbsolutePath = path.resolve(__dirname, contractDataRelativePath, `${contractName}.json`) 
+    const contractDataAbsolutePath = path.resolve(__dirname, contractDataRelativePath, `${contractName}.json`)
     const contractData = JSON.parse(fs.readFileSync(contractDataAbsolutePath))
-      
+
     return contractData
   }
 }
