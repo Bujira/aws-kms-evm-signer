@@ -42,13 +42,13 @@ export class KMSProvider {
       throw new Error('Key ID is required')
     }
 
-    const derPublicKey = await this.#getDerPublickey(keyId)
+    const derPublicKey = await this.#getKMSPublickey(keyId)
     const publicKey = this.#extractRawPublicKey(derPublicKey)
 
     return publicKey
   }
 
-  async #getDerPublickey(keyId)  {
+  async #getKMSPublickey(keyId) {
     /* 
      * According to the AWS KMS GetPublicKey API reference: https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
      * The response will be a DER-encoded X.509 public key, also known as SubjectPublicKeyInfo, as defined in RFC 5480
@@ -140,10 +140,12 @@ export class KMSProvider {
 
   #decodeRS(signature) {
     // https://www.rfc-editor.org/rfc/rfc3279#section-2.2.3
-    const ecdsaSigValueSchema = new asn1js.Sequence({ value: [
-      new asn1js.Integer({ name: 'r' }),
-      new asn1js.Integer({ name: 's' }),
-    ]})
+    const ecdsaSigValueSchema = new asn1js.Sequence({
+      value: [
+        new asn1js.Integer({ name: 'r' }),
+        new asn1js.Integer({ name: 's' }),
+      ]
+    })
 
     // Parse the DER-encoded signature
     const parsed = asn1js.verifySchema(signature, ecdsaSigValueSchema)
@@ -151,14 +153,24 @@ export class KMSProvider {
       throw new Error('Failed to parse signature')
     }
     const r = new BN(Buffer.from(parsed.result.r.valueBlock.valueHex))
-    let s = new BN(Buffer.from(parsed.result.s.valueBlock.valueHex))
+    const s = this.#validateS(s)
 
+    return {
+      r: `0x${r.toString('hex')}`,
+      s: `0x${s.toString('hex')}`,
+    }
+  }
+
+  #validateS(s) {
     /*
      * According to secg.org: https://www.secg.org/sec2-v2.pdf section 2.4.1 (page 9)
      * The order n of G for the secp256k1 curve is: FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
     */
+    let s = new BN(Buffer.from(parsed.result.s.valueBlock.valueHex))
+
     let secp256k1N = new BN('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 16) // max value on the curve
     let secp256k1halfN = secp256k1N.div(new BN(2)) // half of the curve
+
     if (s.gt(secp256k1halfN)) {
       /* 
        * According to the EIP-2: https://eips.ethereum.org/EIPS/eip-2
@@ -168,10 +180,7 @@ export class KMSProvider {
       s = secp256k1N.sub(s) // Flip the s value
     }
 
-    return {
-      r: `0x${r.toString('hex')}`,
-      s: `0x${s.toString('hex')}`,
-    }
+    return s
   }
 
   #calculateV(address, digest, r, s, chainId) {
@@ -199,6 +208,6 @@ export class KMSProvider {
       return Number(chainId) * 2 + 36
     }
 
-    throw new Error('There was a problem calculating the V value')
+    throw new Error(`Recovered address from signature does not match sender's address`)
   }
 }
