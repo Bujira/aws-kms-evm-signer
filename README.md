@@ -224,7 +224,9 @@ The KMS-based signature is returned in an ASN.1 schema. This schema is specific 
       throw new Error('Failed to parse signature')
     }
     const r = new BN(Buffer.from(parsed.result.r.valueBlock.valueHex))
-    const s = this.#validateS(s) // Validate the S value in accordance with EIP-2
+    let s = new BN(Buffer.from(parsed.result.s.valueBlock.valueHex))
+
+    s = this.#validateS(s) // Validate the S value in accordance with EIP-2
 
     return {
       r: `0x${r.toString('hex')}`,
@@ -244,8 +246,6 @@ We are not done yet, since we must validate the S value. The S value (y-coordina
      * According to secg.org: https://www.secg.org/sec2-v2.pdf section 2.4.1 (page 9)
      * The order n of G for the secp256k1 curve is: FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
     */
-    let s = new BN(Buffer.from(parsed.result.s.valueBlock.valueHex))
-
     let secp256k1N = new BN('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 16) // max value on the curve
     let secp256k1halfN = secp256k1N.div(new BN(2)) // half of the curve
 
