@@ -1,5 +1,3 @@
-import { Transaction } from 'ethers'
-  
 export class TransactionService {
   constructor({ provider, contractHelper }) {
     this.provider = provider;
@@ -11,76 +9,70 @@ export class TransactionService {
     contractName,
     contractAddress,
     contractFuncName,
-    contractFuncArgs,
-    serialize = true,
-}) {
+    contractFuncArgs = [],
+  }) {
     const readOnlyContract = await this.contractHelper.getReadOnlyContract({
       contractName, contractAddress,
     })
+    const txData = readOnlyContract.interface.encodeFunctionData(
+      contractFuncName, contractFuncArgs
+    )
 
-    const { chainId } = await this.provider.getNetwork()
-    const nonce = await this.provider.getTransactionCount(sender)
-    const data = readOnlyContract.interface.encodeFunctionData(contractFuncName, contractFuncArgs)
-    // TODO: add RPC call to get gas estimate
+    const [{ chainId }, nonce, gasLimit] = await Promise.all([
+      this.provider.getNetwork(),
+      this.provider.getTransactionCount(sender),
+      this.provider.estimateGas({
+        from: sender,
+        to: contractAddress,
+        data: txData,
+      }),
+    ]) 
 
-    // TODO: review gas estimation
-    const unsignedTxPayload = {
+    // unsigned EIP-1559 transaction
+    const unsignedTx = {
       chainId,
       to: contractAddress,
-      data, // Encoded function call data
+      data: txData, // Encoded function call data
       nonce,
-      gasLimit: 200000,
+      gasLimit,
       maxFeePerGas: 0,
       maxPriorityFeePerGas: 0,
     }
 
-    const unsignedTx = serialize // EIP-1559 transaction
-      ? Transaction.from(unsignedTxPayload).unsignedSerialized
-      : Transaction.from(unsignedTxPayload).toJSON()
-
-    return {
-      chainId,
-      unsignedTx,
-    }
+    return unsignedTx
   }
 
   async buildContractDeployTx ({
     sender,
     contractName,
     constructorArgs = [],
-    serialize = true,
-}) {
+  }) {
     const contractFactory = await this.contractHelper.getReadOnlyContractFactory({ contractName })
+    const { data: txData } = await contractFactory.getDeployTransaction(...constructorArgs)
 
-    const { chainId } = await this.provider.getNetwork()
-    const nonce = await this.provider.getTransactionCount(sender)
-    const { data } = await contractFactory.getDeployTransaction(...constructorArgs)
+    const [{ chainId }, nonce, gasLimit] = await Promise.all([
+      this.provider.getNetwork(),
+      this.provider.getTransactionCount(sender),
+      this.provider.estimateGas({ data: txData })
+    ]) 
 
-    // TODO: review gas estimation
-    const unsignedTxPayload = {
+    // unsigned EIP-1559 transaction
+    const unsignedTx = {
       chainId,
       to: null, // Deploying contracts don't have a recipient
       nonce,
-      data, // Bytecode plus encoded constructor arguments
-      gasLimit: 3000000,
+      data: txData, // Bytecode plus encoded constructor arguments
+      gasLimit,
       maxFeePerGas: 0,
       maxPriorityFeePerGas: 0,
     }
 
-    const unsignedTx = serialize // EIP-1559 transaction
-      ? Transaction.from(unsignedTxPayload).unsignedSerialized
-      : Transaction.from(unsignedTxPayload).toJSON()
-
-    return {
-      chainId,
-      unsignedTx,
-    }
+    return unsignedTx
   }
 
   async broadcastTx(signedTx) {
     // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_sendrawtransaction
     const txResponse = await this.provider.broadcastTransaction(signedTx)
-    console.log('Transaction sent:', txResponse)
     const receipt = await txResponse.wait()
 
     return receipt

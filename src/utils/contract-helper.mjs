@@ -9,6 +9,10 @@ export class ContractHelper {
   }
 
   async getReadOnlyContract ({ contractName, contractAddress }) {
+    if (!contractName || !contractAddress) {
+      throw new Error('contractName and contractAddress are required')
+    }
+
     const { abi } = this.#loadContractData(contractName)
     const contract = new ethers.Contract(contractAddress, abi, this.provider)
 
@@ -16,6 +20,10 @@ export class ContractHelper {
   }
 
   async getReadOnlyContractFactory ({ contractName }) {
+    if (!contractName) {
+      throw new Error('contractName is required')
+    }
+
     const { abi, bytecode } = this.#loadContractData(contractName)
     const contract = new ethers.ContractFactory(abi, bytecode, this.provider)
 
@@ -23,10 +31,6 @@ export class ContractHelper {
   }
 
   #loadContractData (contractName) {
-    if (!contractName) {
-      throw new Error('Contract name is required')
-    }
-
     const contractDataRelativePath = '../../blockchain/contracts-data'
     const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

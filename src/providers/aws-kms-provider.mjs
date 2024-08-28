@@ -48,8 +48,6 @@ export class KMSProvider {
     return publicKey;
   }
 
-  // async signTx({ tx, sender, keyId, chainId }) {}
-
   async #getDerPublickey(keyId)  {
     const getPublicKeyCommand = new GetPublicKeyCommand({
       KeyId: keyId
@@ -98,7 +96,7 @@ export class KMSProvider {
     return address;
   }
 
-  async signTx({ tx, sender, keyId, chainId }) {
+  async signTx({ tx, sender, keyId }) {
     const unsignedTx = Transaction.from(tx)
 
     // Hash the serialized transaction using keccak256
@@ -111,22 +109,18 @@ export class KMSProvider {
     const signCommand = new SignCommand({
       KeyId: keyId,
       Message: digest,
-      MessageType: "DIGEST", // NOTE: if you use RAW, KMS will hash the message for you (we don't want that here)
+      MessageType: "DIGEST",
       SigningAlgorithm: "ECDSA_SHA_256",
     })
     const response = await this.kms.send(signCommand)
     const ecdsaSignature = Buffer.from(response.Signature)
-
+  
     const { r, s } = this.#decodeRS(ecdsaSignature)
-    const v = this.#calculateV(sender, digest, r, s, chainId);
+    const v = this.#calculateV(sender, digest, r, s, unsignedTx.chainId);
 
     const signedTx = Transaction.from({
       ...unsignedTx.toJSON(),
-      signature: {
-        r: '0x' + r.toString('hex'),
-        s: '0x' + s.toString('hex'),
-        v
-      }
+      signature: { r, s, v }
     })
 
     return signedTx.serialized
@@ -152,23 +146,22 @@ export class KMSProvider {
     let secp256k1halfN = secp256k1N.div(new BN(2)); // half of the curve
     if (s.gt(secp256k1halfN)) {
       s = secp256k1N.sub(s);
-      console.log({ s: s.toString('hex') })
-      console.log({ s: s.toString() })
     }
-    return { r: r.toBuffer(), s: s.toBuffer() }
+  
+    return {
+      r: `0x${r.toString('hex')}`,
+      s: `0x${s.toString('hex')}`
+    }
   }
   
    #calculateV(address, digest, r, s, chainId) {
-    const rHex = `0x${r.toString('hex')}`;
-    const sHex = `0x${s.toString('hex')}`;
-
-    const addressCandidateA = recoverAddress(digest, { r: rHex, s: sHex, v: 27 });
-    const addressCandidateB = recoverAddress(digest, { r: rHex, s: sHex, v: 28 });
+    const addressCandidateA = recoverAddress(digest, { r, s, v: 27 });
+    const addressCandidateB = recoverAddress(digest, { r, s, v: 28 });
 
     if (addressCandidateA.toLocaleLowerCase() === address.toLocaleLowerCase()) {
-        return Number(chainId) * 2 + 35;
+      return Number(chainId) * 2 + 35;
     } else if (addressCandidateB.toLocaleLowerCase() === address.toLocaleLowerCase()) {
-        return Number(chainId) * 2 + 36;
+      return Number(chainId) * 2 + 36;
     }
 
     throw new Error('There was a problem calculating the V value');
