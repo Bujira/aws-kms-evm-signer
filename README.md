@@ -60,7 +60,7 @@ Therefore, we will make use of ASN.1 schemas to decode and interpret both the DE
 
 ![decoding_kms_material](https://github.com/user-attachments/assets/dc4a2801-2cc5-4796-97d7-1e46f73bef11)
 
-ASN.1, which is a notation, is used almost everywhere when you need to transmit data digitally. If you are not familiar with ASN.1, we highly encourage you to check it out at https://www.itu.int/en/ITU-T/asn1/Pages/introduction.aspx.
+ASN.1 is a standard interface for defining and encoding data structures, commonly used in cryptographic and network protocols. It is used almost everywhere when you need to transmit data digitally. If you are not familiar with ASN.1, we highly encourage you to check it out at https://www.itu.int/en/ITU-T/asn1/Pages/introduction.aspx.
 
 # 4. Retrieving the EVM public key
 
@@ -68,10 +68,11 @@ ASN.1, which is a notation, is used almost everywhere when you need to transmit 
 Now you have an asymmetric ECDSA key pair and you are able to retrieve the KMS-based public key value with the AWS SDK `GetPublicKeyCommand` function:
 
 ```javascript
-async #getKMSPublickey(keyId)  {
+async #getKMSPublicKey(keyId)  {
     /* 
      * According to the AWS KMS GetPublicKey API reference: https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
-     * The response will be a DER-encoded X.509 public key, also known as SubjectPublicKeyInfo, as defined in RFC 5480
+     * The response will be a DER-encoded X.509 public key, also known as SubjectPublicKeyInfo
+     * That means that the public key is wrapped in a specific ASN.1 structure defined by RFC 5480
     */
     const getPublicKeyCommand = new GetPublicKeyCommand({
       KeyId: keyId,
@@ -141,7 +142,7 @@ Since we now have an EVM public key, we can use it to derive the EVM public addr
 We have successfully used an ASN.1 schema to decode a KMS-based public key and from that decoded key, derive our EVM public address.
 
 # 6. Prepare the EVM transaction payload
-Since we are dealing here with EVM-compatible gas free networks (eg.: a private Hyperledger Besu network), we must prepare our transaction payload accordingly, following EIP-1559 guidelines. Note that our EVM-compatible provider has already been instanciated so we can communicate with the blockchain.
+Since we are dealing here with EVM-compatible gas free networks (eg.: a private Hyperledger Besu network), we must prepare our transaction payload accordingly, following EIP-1559 guidelines. Note that our EVM-compatible provider has already been instantiated so we can communicate with the blockchain.
 
 ```javascript
    const [{ chainId }, nonce, gasLimit] = await Promise.all([
@@ -235,7 +236,7 @@ The KMS-based signature is returned in an ASN.1 schema. This schema is specific 
   }
 ```
 
-From this response, we can obtain the R and S values, where R is derived from the x-coordinate of the signature and S is a scalar computed from an arithmetic operation. These values are crucial to identify the transaction signer without revealing the private key.
+From this response, we can obtain the R and S values, where R is the x-coordinate of the curve point generated during signing and S is a scalar computed from an arithmetic operation. These values are crucial to identify the transaction signer without revealing the private key.
 
 ## 7.4. Validate the S value
 We are not done yet, since we must validate the S value which can assume two different values. We use the method below to figure out the S value that constitutes a valid EVM transaction signature. According to EIP-2, the S value cannot be greater than secp256k1n/2, where secp256k1n represents the max value for S defined for the particular elliptic curve. 
