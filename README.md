@@ -235,10 +235,10 @@ The KMS-based signature is returned in an ASN.1 schema. This schema is specific 
   }
 ```
 
-From this response, we can obtain the R and S values of the elliptic curve (x and y coordinates of the signature, respectively). These values are crucial to identify the transaction signer without revealing the private key.
+From this response, we can obtain the R and S values, where R is derived from the x-coordinate of the signature and S is a scalar computed from an arithmetic operation. These values are crucial to identify the transaction signer without revealing the private key.
 
 ## 7.4. Validate the S value
-We are not done yet, since we must validate the S value. The S value (y-coordinate) can assume two values in the elliptic curve (there are two possible values for y that satisfy the equation). We use the method below to figure out the S value that constitutes a valid EVM transaction signature. According to EIP-2, the S value cannot be greater than secp256k1n/2, where secp256k1n represents the max value for S defined for the particular elliptic curve. 
+We are not done yet, since we must validate the S value which can assume two different values. We use the method below to figure out the S value that constitutes a valid EVM transaction signature. According to EIP-2, the S value cannot be greater than secp256k1n/2, where secp256k1n represents the max value for S defined for the particular elliptic curve. 
 
 ```javascript
   #validateS(s) {
