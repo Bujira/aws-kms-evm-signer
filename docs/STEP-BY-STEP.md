@@ -16,7 +16,7 @@
   - [7.3. Decode the signed transaction and retrieve the R and S values](#73-decode-the-signed-transaction-and-retrieve-the-r-and-s-values)
   - [7.4. Validate the S value](#74-validate-the-s-value)
   - [7.5. Calculate the V value](#75-calculate-the-v-value)
-  - [7.6. Assemble signed EVM transaction](#76-assemble-signed-evm-transaction)
+  - [7.6. Assemble a signed EVM transaction](#76-assemble-signed-evm-transaction)
 - [8. Sending the transaction to the blockchain](#8-sending-the-transaction-to-the-blockchain)
 - [9. Conclusion](#9-conclusion)
 
@@ -299,7 +299,7 @@ This is another crucial operation, since messing up the calculation of the V val
 
 We are finally ready to assemble our valid EVM signed transaction.
 
-## 7.6. Assemble signed EVM transaction
+## 7.6. Assemble a signed EVM transaction
 We are now able to assemble a valid EVM signed transaction, and for that we will use our serialized unsigned transaction together with the R, S and V values we retrieved from the decoded KMS-based signed transaction. Once this signed transaction is assembled, we will serialize it in order to be able to push it to the blockchain (remember here that EVM transactions expect a RLP encoding format). Finally, the serialized signed transaction is decoded as a hexadecimal string (the ethers lib already takes care of this step).
 
 ```javascript
