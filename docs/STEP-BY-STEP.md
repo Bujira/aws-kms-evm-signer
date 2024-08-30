@@ -58,7 +58,7 @@ Before we move on to the next steps, we should take a second to better understan
 
 Therefore, we will make use of ASN.1 schemas to decode and interpret both the DER-encoded public key as well as the DER-encoded transaction signature. The schemas will work as shown below, taking a DER-encoded value and with the appropriate schema decoding it to a format that can be adapted (parsed or assembled) to be used in EVM transactions. After running through the schemas, the public key will be returned in raw format with the first byte indicating if it is a compressed or uncompressed key; the signature will return the R and S values, needed to create a valid EVM transaction, as we'll see soon.
 
-![decoding_kms_material](https://github.com/user-attachments/assets/dc4a2801-2cc5-4796-97d7-1e46f73bef11)
+![decoding_kms_material](https://github.com/user-attachments/assets/cadb1d0f-7698-49ff-bc69-124878bb0b47)
 
 ASN.1 is a standard interface for defining and encoding data structures, commonly used in cryptographic and network protocols. It is used almost everywhere when you need to transmit data digitally. If you are not familiar with ASN.1, we highly encourage you to check it out at https://www.itu.int/en/ITU-T/asn1/Pages/introduction.aspx.
 
