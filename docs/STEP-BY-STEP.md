@@ -16,7 +16,7 @@
   - [7.3. Decode the signed transaction and retrieve the R and S values](#73-decode-the-signed-transaction-and-retrieve-the-r-and-s-values)
   - [7.4. Validate the S value](#74-validate-the-s-value)
   - [7.5. Calculate the V value](#75-calculate-the-v-value)
-  - [7.6. Assemble a signed EVM transaction](#76-assemble-signed-evm-transaction)
+  - [7.6. Assemble a signed EVM transaction](#76-assemble-a-signed-evm-transaction)
 - [8. Sending the transaction to the blockchain](#8-sending-the-transaction-to-the-blockchain)
 - [9. Conclusion](#9-conclusion)
 
