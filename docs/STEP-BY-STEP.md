@@ -23,14 +23,14 @@
 ---
 
 # 1. Introduction
-First things first, this blog post covers three main topics: creating an EVM compatible KMS key pair, signing an EVM transaction with KMS and sending an EVM transaction to a gas free (private) blockchain. All of this using NodeJS, JavaScript and an EVM-compatible gas free blockchain.
-
-For the first topic, the text is pretty straightforward. We will create an EVM compatible key pair using AWS KMS, no tricks involved. When we say EVM compatible, that means we will use KMS to create an asymmetric ECDSA key pair using the secp256k1 curve.
-
-The second topic is where things get really interesting. We will sign an EVM transaction using the KMS key pair we created. If you are familiar with KMS, it stores its keys using DER-encoded format, which is a standard ASN.1 structure, more specifically a X.509 certificate structure (we will talk more about ASN.1 later on). This format is different from the format of public and private keys used in EVM transactions, which are numbers represented in hexadecimal strings. Therefore, there is a need to decode the KMS-based (DER format) public key in order to be able to retrieve the EVM public address of the key. Once the transaction is signed using KMS, the KMS-based signed transaction also needs to be decoded in order to assemble a valid signed EVM transaction. No more spoilers, we will dive into this topic in more detail later on.
-
+First things first, this blog post covers three main topics: creating an EVM compatible KMS key pair, signing an EVM transaction with KMS and sending an EVM transaction to a gas free (private) blockchain. We will be using technologies such as NodeJS, JavaScript and an EVM-compatible gas free (private) blockchain.
+	
+For the first topic, the text is straightforward. We will create an EVM compatible key pair using AWS KMS, no tricks involved. When we say EVM compatible, that means we will use KMS to create an asymmetric ECDSA key pair using the secp256k1 curve.
+	
+The second topic is where things get interesting. We will sign an EVM transaction using the KMS key pair we created. If you are familiar with KMS, it stores its keys using DER-encoded format, which is a standard ASN.1 structure, more specifically a X.509 certificate structure (we will talk more about ASN.1 later). This format is different from the format of public and private keys used in EVM transactions, which are numbers represented in hexadecimal strings. Therefore, there is a need to decode the KMS-based (DER format) public key to be able to retrieve the EVM public address of the key. Once the transaction is signed using KMS, the KMS-based signed transaction also needs to be decoded to assemble a valid signed EVM transaction. No more spoilers, we will dive into this topic in more detail later.
+	
 Finally, we send the signed transaction to an EVM-compatible gas free blockchain, in accordance with EIP-1559. Note that you could easily adapt this solution to use KMS to sign and send transactions to a public EVM-compatible blockchain; all you would need to do is perform a few tweaks in the EVM transaction payload presented later in this blog post.
-
+	
 Throughout this text, we will often refer to a DER-encoded public key or a DER-encoded signature simply as KMS-based public key or KMS-based signature, respectively.
 
 # 2. Creating an EVM-compatible key with AWS KMS
@@ -51,12 +51,12 @@ We start off creating a fresh pair of asymmetric ECDSA keys using AWS KMS. The K
   }
 ```
 	
-From this response, you can obtain your KMS `keyId` that identifies your new key (we are not dealing with, or worrying about, IAM users and permissions here).
+From this response, you can obtain your KMS keyId that identifies your new key (we are not dealing with, or worrying about, IAM users and permissions here).
 
 # 3. KMS DER-encoding
-Before we move on to the next steps, we should take a second to better understand what is going on. We have just created an asymmetric ECDSA key pair. KMS will now store our private key and by design we will not have access to this key, so every transaction signature will be done inside the KMS, meaning that each signature will be in DER-encoded format. Our public key is stored in DER-encoded format as well and, same as the signatures, cannot yet be interpreted in EVM transactions.
-
-Therefore, we will make use of ASN.1 schemas to decode and interpret both the DER-encoded public key as well as the DER-encoded transaction signature. The schemas will work as shown below, taking a DER-encoded value and with the appropriate schema decoding it to a format that can be adapted (parsed or assembled) to be used in EVM transactions. After running through the schemas, the public key will be returned in raw format with the first byte indicating if it is a compressed or uncompressed key; the signature will return the R and S values, needed to create a valid EVM transaction, as we'll see soon.
+Before we move on to the next steps, we should take a second to better understand what is going on. We have just created an asymmetric ECDSA key pair. KMS will now store our private key and by design we will not have access to this key, so every transaction signature will be done inside the KMS, meaning that each signature will be in DER-encoded format. Our public key is stored in DER-encoded format as well and same as the signatures, cannot yet be interpreted in EVM transactions.
+	
+Therefore, we will make use of ASN.1 schemas to decode and interpret both the DER-encoded public key as well as the DER-encoded transaction signature. The schemas will work as shown below, taking a DER-encoded value and with the appropriate schema decoding it to a format that can be adapted (parsed or assembled) to be used in EVM transactions. After running through the schemas, the public key will be returned in raw format with the first byte indicating if it is a compressed or uncompressed key; the signature will return the R and S values needed to create a valid EVM transaction, as we’ll see soon.
 
 ![decoding_kms_material](https://github.com/user-attachments/assets/cadb1d0f-7698-49ff-bc69-124878bb0b47)
 
@@ -65,7 +65,7 @@ ASN.1 is a standard interface for defining and encoding data structures, commonl
 # 4. Retrieving the EVM public key
 
 ## 4.1. Retrieve the KMS-based public key
-Now you have an asymmetric ECDSA key pair and you are able to retrieve the KMS-based public key value with the AWS SDK `GetPublicKeyCommand` function:
+Now you have an asymmetric ECDSA key pair, and you can retrieve the KMS-based public key value with the AWS SDK `GetPublicKeyCommand` function:
 
 ```javascript
 async #getKMSPublicKey(keyId)  {
@@ -119,7 +119,7 @@ Here we will use a specific ASN.1 schema to decode the KMS-based public key, as 
 From this response, you can obtain your EVM public key by removing the first byte (0x04). What is left is your EVM public key which is a large number that represents the x and y coordinates of a point in the elliptic curve. 
 
 # 5. Calculating the EVM address
-Since we now have an EVM public key, we can use it to derive the EVM public address associated with the key pair generated by KMS by creating a hash of the EVM public key and extracting the last 20 bytes of the hash.
+Since we now have an EVM public key, we can use it to derive the EVM public address by creating a hash of the EVM public key and extracting the last 20 bytes of the hash.
 
 ```javascript
   #deriveAddress(publicKey) {
@@ -142,7 +142,7 @@ Since we now have an EVM public key, we can use it to derive the EVM public addr
 We have successfully used an ASN.1 schema to decode a KMS-based public key and from that decoded key, derive our EVM public address.
 
 # 6. Prepare the EVM transaction payload
-Since we are dealing here with EVM-compatible gas free networks (eg.: a private Hyperledger Besu network), we must prepare our transaction payload accordingly, following EIP-1559 guidelines. Note that our EVM-compatible provider has already been instantiated so we can communicate with the blockchain.
+Since we are dealing here with EVM-compatible gas free networks (e.g.: a private Hyperledger Besu network), we must prepare our transaction payload, accordingly, following EIP-1559 guidelines. Note that our EVM-compatible provider has already been instantiated so we can communicate with the blockchain using a web3 library.
 
 ```javascript
    const [{ chainId }, nonce, gasLimit] = await Promise.all([
@@ -170,12 +170,12 @@ Since we are dealing here with EVM-compatible gas free networks (eg.: a private 
 From this, we have a transaction payload ready to be manipulated and signed by our KMS-based private key.
 
 # 7. Signing an EVM transaction
-By now you've probably figured out the main reason why this document was created. We have already seen that KMS stores asymmetric key pairs in a format that is not directly compatible with EVM operations. You cannot just read the KMS-based public key and derive your EVM public address from it, without doing some decoding for compatibility. The same goes for the KMS-based signature. In order to sign an EVM transaction with KMS, we need to create a "digest" of the transaction payload, so that KMS can interpret the message and sign it correctly. Once signed, KMS will return to the user a KMS-based signature that is also not directly compatible with EVMs. Same as we did with the KMS-based public key, we must decode the KMS-based signature and assemble a valid EVM transaction. 
-
-This is a crucial step of the process. If the unsigned transaction has flaws or if the signature format is carried out by incorrectly invoking KMS, we could end up with a valid KMS-based signature that will be successfully sent to an EVM-compatible blockchain, but the transaction will not correctly be associated with its sender.
+By now you’ve probably figured out the main reason why this document was created. We have already seen that KMS stores asymmetric key pairs in a format that is not directly compatible with EVM operations. You cannot just read the KMS-based public key and derive your EVM public address from it, without doing some decoding for compatibility. The same goes for the KMS-based signature. To sign an EVM transaction with KMS, we need to create a “digest” of the transaction payload, so that KMS can interpret the message and sign it correctly. Once signed, KMS will return to the user a KMS-based signature that is also not directly compatible with EVMs. Same as we did with the KMS-based public key, we must decode the KMS-based signature and assemble a valid EVM transaction.
+	
+This is a crucial step of the process. If the unsigned transaction has flaws or if KMS is invoked incorrectly, we could end up with a valid KMS-based signature that will be successfully sent to an EVM-compatible blockchain, but the transaction will not correctly be associated with its sender (we'll see soon that problems with a KMS-based signature compromise the ability to correctly identify the sender's identity, but do not invalidate the signature).
 
 ## 7.1. Create the unsigned transaction
-We have everything we need to start our signing process, so it's time to create a serialized unsigned transaction and then hash it. This will be our "digest". We serialize and hash the transaction payload in accordance with the RLP format expected by an EVM. After serializing the transaction payload, we create a buffer of the unsigned serialized transaction since AWS KMS expects the message to be in this format in order to be signed.
+We have everything we need to start our signing process, so it’s time to create a serialized unsigned transaction and then hash it. This will be our “digest”. We serialize and hash the transaction payload in accordance with the RLP format expected by an EVM. After serializing the transaction payload, we create a buffer of the unsigned serialized transaction since AWS KMS expects the message to be in this format to be signed.
 
 ```javascript
     const unsignedTx = Transaction.from(tx) // Transaction is imported from ethers
@@ -207,7 +207,7 @@ At this step, we finally sign our transaction with KMS using the `SignCommand` f
 Your transaction is now successfully signed and ready to be decoded.
 
 ## 7.3. Decode the signed transaction and retrieve the R and S values
-The KMS-based signature is returned in an ASN.1 schema. This schema is specific for ECDSA signatures. We will use the KMS-based signature as input, and decode it using the respective ASN.1 schema.
+The KMS-based signature is returned in an ASN.1 schema. This schema is specific for ECDSA signatures. We will use the KMS-based signature as input and decode it using the respective ASN.1 schema.
 
 ```javascript
   #decodeRS(signature) {
@@ -239,7 +239,7 @@ The KMS-based signature is returned in an ASN.1 schema. This schema is specific 
 From this response, we can obtain the R and S values, where R is the x-coordinate of the curve point generated during signing and S is a scalar computed from an arithmetic operation. These values are crucial to identify the transaction signer without revealing the private key.
 
 ## 7.4. Validate the S value
-We are not done yet, since we must validate the S value which can assume two different values. We use the method below to figure out the S value that constitutes a valid EVM transaction signature. According to EIP-2, the S value cannot be greater than secp256k1n/2, where secp256k1n represents the max value for S defined for the particular elliptic curve. 
+We are not done yet, since we must validate the S value which can assume two different values. We use the method below to figure out the S value that constitutes a valid EVM transaction signature. According to EIP-2, the S value cannot be greater than secp256k1n/2, where secp256k1n represents the max value for S defined for the elliptic curve. 
 
 ```javascript
   #validateS(s) {
@@ -264,8 +264,7 @@ We are not done yet, since we must validate the S value which can assume two dif
 ```
 
 ## 7.5. Calculate the V value
-The last value we need to be able to assemble our valid EVM signed transaction is V. The value V is important because for EVM transactions, R, S and V are used to calculate the EVM public address of the sender associated with the transaction. The V value also prevents replay attacks as specified in EIP-155. 
-This is another crucial operation, since messing up the calculation of the V value can create a valid EVM signature leading to a successful transaction that actually misrepresents the actual sender.
+The last value we need to be able to assemble our valid EVM signed transaction is V. The value V is important because for EVM transactions, R, S and V are used to calculate the EVM public address of the sender associated with the transaction. The V value also prevents replay attacks as specified in EIP-155. This is another crucial operation, since messing up the calculation of the V value can create a valid EVM signature leading to a successful transaction that misrepresents the actual sender's identity.
 
 ```javascript
   #calculateV(address, digest, r, s, chainId) {
@@ -297,10 +296,12 @@ This is another crucial operation, since messing up the calculation of the V val
   }
 ```
 
-We are finally ready to assemble our valid EVM signed transaction.
+We are finally ready to assemble our valid EVM signed transaction. 
+
+We encourage you to try forcing the application to always return the same V value (set the first if statement to always be true for example) and sign a few transactions that way. You'll be able to see that one of these or many of these transactions (maybe all of them) will be registered in the blockchain with a different sender's address than your actual sender's address.
 
 ## 7.6. Assemble a signed EVM transaction
-We are now able to assemble a valid EVM signed transaction, and for that we will use our serialized unsigned transaction together with the R, S and V values we retrieved from the decoded KMS-based signed transaction. Once this signed transaction is assembled, we will serialize it in order to be able to push it to the blockchain (remember here that EVM transactions expect a RLP encoding format). Finally, the serialized signed transaction is decoded as a hexadecimal string (the ethers lib already takes care of this step).
+We are now able to assemble a valid EVM signed transaction, and for that we will use our serialized unsigned transaction together with the R, S and V values we retrieved from the decoded KMS-based signed transaction. Once this signed transaction is assembled, we will serialize it to be able to push it to the blockchain (remember here that EVM transactions expect a RLP encoding format). Finally, the serialized signed transaction is decoded as a hexadecimal string (the ethers library already takes care of this step).
 
 ```javascript
     const { r, s } = this.#decodeRS(ecdsaSignature)
@@ -314,7 +315,7 @@ We are now able to assemble a valid EVM signed transaction, and for that we will
     return signedTx.serialized // Decoded as a hexadecimal string
 ```
 
-Our job is done and our signed transaction is ready to be sent off.
+Our job is done, and our signed transaction is ready to be sent off.
 
 # 8. Sending the transaction to the blockchain
 All we do here is send the signed transaction and verify that it has been successfully inserted in the blockchain.
@@ -330,4 +331,4 @@ All we do here is send the signed transaction and verify that it has been succes
 ```
 
 # 9. Conclusion
-AWS KMS is a great tool to securely store your private keys and use them to sign EVM transactions. As we have learned here, KMS will store your keys in DER format, so you must decode them to a format that EVM transactions can interpret. The same happens to your KMS-based signed transaction. The process of understanding the difference of data formats between KMS and EVM-compatible blockchains ends up taking you on a journey that helps you better understand about EVM transactions, elliptic curves, and what goes on under the hood of assembling a valid signed EVM transaction. It also teaches you about ASN.1 which is something that surrounds your daily life and maybe you hadn't taken notice. If you dive a little deeper into ASN.1, for instance, you'll find out that by understanding how the DER format works, you can distinguish the public key value from a KMS-based public key by translating its byte sequence in order to find the public key (we could have used one line of code in the `extractRawPublicKey` function; we did not for code consistency and didactic purposes). This journey also points out to you many changes implemented by different EIPs and how it progressively changes the way EVM-compatible blockchains work and why. We also learned a valuable lesson: the possibility of as miscalculation of the V value that could misinform the sender's identity. Hopefully you've learned a lot and can make use of KMS in your future web3 projects. Happy coding.
+AWS KMS is a great tool to securely store your private keys and use them to sign EVM transactions. As we have learned here, KMS will store your keys in DER format, so you must decode them to a format that EVM transactions can interpret. The same happens to your KMS-based signed transaction. The process of understanding the difference of data formats between KMS and EVM-compatible blockchains ends up taking you on a journey that helps you better understand EVM transactions, elliptic curves, and what goes on under the hood of assembling a valid signed EVM transaction. It also teaches you about ASN.1 which is something that surrounds your daily life and maybe you hadn’t taken notice. If you dive a little deeper into ASN.1, for instance, you’ll find out that by understanding how the DER format works, you can distinguish the public key value from a KMS-based public key by translating its byte sequence in order to find the public key (we could have used one line of code in the extractRawPublicKey function; we did not for code consistency and didactic purposes). This journey also points out to you many changes implemented by different EIPs and how it progressively changes the way EVM-compatible blockchains work and why. We also learned a valuable lesson: the possibility of a miscalculation of the V value that could misinform the sender’s identity. Hopefully you’ve learned a lot and can make use of KMS in your future web3 projects involving private blockchains or public ones. Happy coding.
