@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules dotenvx run -- jest --runInBand",
-    "hardhat": "dotenvx run -- hardhat --config blockchain/hardhat.config.js"
+    "hardhat": "dotenvx run -- hardhat --config blockchain/hardhat.config.js",
+    "sign-tx": "dotenvx run -- node ./scripts/sign-transaction.mjs",
+    "create-key": "dotenvx run -- node ./scripts/create-kms-key.mjs",
+    "get-key-info": "dotenvx run -- node ./scripts/get-kms-key-info.mjs"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.11.1",
